@@ -24,29 +24,69 @@ class Accuracy(object):
         return result
 
 class F1_score(object):
-    def __init__(self,num_classes = None):
+    def __init__(self, num_classes=None):
         self.labels = None
+        #print(num_classes)
         if num_classes:
-            self.labels = [i for i in range(num_classes)]
-    def __call__(self,best_path,target):
-        y_pred = best_path.contiguous().view(1, -1).squeeze().cpu()
-        y_true = target.contiguous().view(1, -1).squeeze().cpu()
-        y_true = y_true.numpy()
-        y_pred = y_pred.numpy()
-        f1 = f1_score(y_true, y_pred, labels=self.labels, average="macro")
-        correct = np.sum((y_true==y_pred).astype(int))
-        acc = correct/y_pred.shape[0]
+            if len(num_classes) > 3 and num_classes[-3:] == ["O", "BOS", "EOS"]:
+                self.labels = [i for i in range(1, num_classes-3)]
+            elif len(num_classes) > 2 and num_classes[-2:] == ["BOS", "EOS"]:
+                self.labels = [i for i in range(1, num_classes - 2)]
+            else:
+                self.labels = [i for i in range(1, num_classes)]
+
+        print(self.labels)
+        self._reset()
+
+    def _reset(self):
+        self.best_path = []
+        self.target = []
+
+    def update(self, best_path, target):
+        y_pred = best_path.contiguous().view(1, -1).squeeze().cpu().tolist()
+        y_true = target.contiguous().view(1, -1).squeeze().cpu().tolist()
+        self.best_path.extend(y_pred)
+        self.target.extend(y_true)
+
+    def result(self):
+        y_true = np.array(self.best_path)
+        y_pred = np.array(self.target)
+        f1 = f1_score(y_true, y_pred, labels=self.labels, average="micro")
+        correct = np.sum((y_true == y_pred).astype(int))
+        acc = correct / y_pred.shape[0]
+        self._reset()
         return (acc, f1)
 
 class Classification_Report(object):
-    def __init__(self):
-        pass
-    def __call__(self,y_pred,y_true):
-        _, y_pred = torch.max(y_pred.data, 1)
-        y_true = y_true.numpy()
-        y_pred = y_pred.numpy()
-        classify_report = classification_report(y_true, y_pred)
-        print('\n\nclassify_report:\n', classify_report)
+    def __init__(self, num_classes=None):
+        self.labels = None
+        if num_classes:
+            if len(num_classes) > 3 and num_classes[-3:] == ["O", "BOS", "EOS"]:
+                self.labels = [i for i in range(1, num_classes-3)]
+            elif len(num_classes) > 2 and num_classes[-2:] == ["BOS", "EOS"]:
+                self.labels = [i for i in range(1, num_classes - 2)]
+            else:
+                self.labels = [i for i in range(1, num_classes)]
+        self._reset()
+
+    def _reset(self):
+        self.best_path = []
+        self.target = []
+
+    def update(self, best_path, target):
+        y_pred = best_path.contiguous().view(1, -1).squeeze().cpu().tolist()
+        y_true = target.contiguous().view(1, -1).squeeze().cpu().tolist()
+        self.best_path.extend(y_pred)
+        self.target.extend(y_true)
+
+    def result(self):
+        y_true = np.array(self.best_path)
+        y_pred = np.array(self.target)
+        results = classification_report(y_true, y_pred, labels=self.labels, output_dict=True)
+        # correct = np.sum((y_true==y_pred).astype(int))
+        # acc = correct/y_pred.shape[0]
+        self._reset()
+        return results
 
 
 # 实体得分情况
@@ -67,6 +107,10 @@ class Entity_Score(object):
         return recall,precision,f1
 
     def result(self):
+        total_origin = len(self.origins)
+        total_found = len(self.founds)
+        total_right = len(self.rights)
+        r, p, f = self._compute(total_origin, total_found, total_right)
         origin_counter = Counter([x['type'] for x in self.origins])
         found_counter = Counter([x['type'] for x in self.founds])
         right_counter = Counter([x['type'] for x in self.rights])
@@ -76,6 +120,7 @@ class Entity_Score(object):
             right = right_counter.get(type,0)
             recall,precision,f1 = self._compute(origin,found,right)
             print("Type: %s - precision: %.4f - recall: %.4f - f1: %.4f"%(type,recall,precision,f1))
+        return f
 
     def update(self,label_paths,pred_paths):
         '''

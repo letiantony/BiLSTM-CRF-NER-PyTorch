@@ -123,11 +123,12 @@ class Trainer(object):
                     predicts = predicts.cpu().numpy()
                     target = target.cpu().numpy()
                 self.val_entity_score.update(pred_paths=predicts, label_paths=target)
+        val_f1 = self.val_entity_score.result()
 
         return {
             'val_loss': val_losses.avg,
             'val_acc': val_acc.avg,
-            'val_f1': val_f1.avg
+            'val_f1': val_f1
         }
 
     # epoch训练
@@ -173,10 +174,11 @@ class Trainer(object):
                                       f1       = f1.item(),
                                       use_time = time.time() - start)
         print("\ntraining result:")
+        train_f1 = self.train_entity_score.result()
         train_log = {
             'loss': train_loss.avg,
             'acc': train_acc.avg,
-            'f1': train_f1.avg
+            'f1': train_f1
         }
         return train_log
 

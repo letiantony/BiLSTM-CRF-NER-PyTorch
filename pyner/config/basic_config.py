@@ -14,7 +14,7 @@ configs = {
     'valid_file_path': path.sep.join([BASE_DIR,'dataset/processed/valid.json']),   #　valid数据
     'test_file_path': path.sep.join([BASE_DIR,'dataset/processed/test.json']),   # test数据
     'embedding_weight_path': path.sep.join([BASE_DIR, # 词向量
-                                            'output/embedding/min_count_1_window_5_300d.word2vec']),
+                                            'output/embedding/pretrained_embedding.utf8']),
     'glove_weight_path': path.sep.join([BASE_DIR, # 词向量
                                             'output/embedding/glove_vectors_word.txt']),
     'vocab_path': path.sep.join([BASE_DIR,'dataset/processed/vocab.pkl']), # 语料数据
@@ -38,18 +38,19 @@ configs = {
     'start_epoch': 1,
     'learning_rate': 0.015,
     'weight_decay': 5e-4, # 权重衰减因子，防止过拟合
-    'n_gpus': [0], # GPU个数,如果只写一个数字，则表示gpu标号从0开始，并且默认使用gpu:0作为controller,
+    'n_gpus': [], # GPU个数,如果只写一个数字，则表示gpu标号从0开始，并且默认使用gpu:0作为controller,
                    # 如果以列表形式表示，即[1,3,5],则我们默认list[0]作为controller
     'x_var':'source', # 原始文本字段名
     'y_var':'target', # 原始标签字段名
     'num_workers': multiprocessing.cpu_count(), # 线程个数
     'seed': 2018,     # seed
     'lr_patience': 5, # number of epochs with no improvement after which learning rate will be reduced.
-    'mode': 'min',    # one of {min, max}
-    'monitor': 'val_loss',  # 计算指标
+    'mode': 'max',    # one of {min, max}
+    # 'monitor': 'val_loss',  # 计算指标
+    'monitor': 'val_f1',  # 计算指标
     'early_patience': 10,   # early_stopping
     'save_best_only': True, # 是否保存最好模型
-    'best_model_name': '{arch}-best2.pth', #保存文件
+    'best_model_name': '{arch}-best.pth', #保存文件
     'epoch_model_name': '{arch}-{epoch}-{val_loss}.pth', #以epoch频率保存模型
     'save_checkpoint_freq': 10, #保存模型频率，当save_best_only为False时候，指定才有作用
     'label_to_id': {    # 标签映射
@@ -59,8 +60,8 @@ configs = {
         "I_LOC": 4,
         "B_ORG": 5,  # 机构
         "I_ORG": 6,
-        "B_T": 7,    # 时间
-        "I_T": 8,
+        "B_TIME": 7,    # 时间
+        "I_TIME": 8,
         "O": 9,      # 其他
         "BOS": 10,   # 起始符
         "EOS": 11    # 结束符

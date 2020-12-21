@@ -40,7 +40,7 @@ class ModelCheckpoint(object):
             self.best = best
         ensure_dir(self.checkpoint_dir.format(arch = self.arch))
 
-    def step(self, state,current):
+    def step(self, state, current):
         # 是否保存最好模型
         if self.save_best_only:
             if self.monitor_op(current, self.best):
