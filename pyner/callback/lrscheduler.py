@@ -149,8 +149,8 @@ class ReduceLROnPlateau(object):
         >>>     scheduler.step(val_loss, epoch)
     """
 
-    def __init__(self, optimizer, mode='min', factor=0.1, patience=10,
-                 verbose=0, epsilon=1e-4, cooldown=0, min_lr=0):
+    def __init__(self, optimizer, mode='min', factor=0.995, patience=5,
+                 verbose=0, epsilon=1e-8, cooldown=0, min_lr=5e-6):
         super(ReduceLROnPlateau, self).__init__()
 
         if factor >= 1.0:

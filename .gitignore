@@ -105,3 +105,6 @@ venv.bak/
 pyner/dataset/
 .idea/
 pyner/output/embedding/
+pyner/output
+test_predict.out
+

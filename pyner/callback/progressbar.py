@@ -11,14 +11,20 @@ class ProgressBar():
         self.n_batch = n_batch
         self.use = 'on_batch_end'
 
-    def step(self,batch_idx,loss,acc,use_time,f1):
+    def step(self, batch_idx, loss, use_time, aug_loss=None):
         recv_per = int(100 * (batch_idx + 1) / self.n_batch)
         if recv_per >= 100:
             recv_per = 100
         # 只显示train数据结果
         show_bar = ('[%%-%ds]' % self.width) % (int(self.width * recv_per / 100) * ">")
-        show_str = '\r[training] %d/%d %s -%.1fs/step- %s: %.4f- %s: %.4f - f1: %.4f'
-        print(show_str % (
-            batch_idx+1,self.n_batch,show_bar, use_time,self.loss_name, loss,self.eval_name, acc,f1),end='')
+        if aug_loss is not None:
+            show_str = '\r[training] %d/%d %s -%.1fs/step- %s: %.4f - Aug loss : %.4f'
+            print(show_str % (
+                batch_idx + 1, self.n_batch, show_bar, use_time,
+                self.loss_name, loss, aug_loss), end='')
+        else:
+            show_str = '\r[training] %d/%d %s -%.1fs/step- %s: %.4f-'
+            print(show_str % (
+                batch_idx + 1, self.n_batch, show_bar, use_time, self.loss_name, loss), end='')
 
 

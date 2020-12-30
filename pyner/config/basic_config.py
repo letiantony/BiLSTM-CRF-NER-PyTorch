@@ -5,10 +5,15 @@ import multiprocessing
 BASE_DIR = 'pyner'
 
 configs = {
-    'all_data_path': path.sep.join([BASE_DIR,'dataset/raw/source_BIO_2014_cropus.txt']),   # 总的数据，一般是将train和test何在一起构建语料库
-    'raw_train_path': path.sep.join([BASE_DIR,'dataset/raw/source_BIO_2014_cropus.txt']),  # 原始的训练数据
-    'raw_target_path': path.sep.join([BASE_DIR,'dataset/raw/target_BIO_2014_cropus.txt']), #　原始的标签数据
-    'raw_test_path': path.sep.join([BASE_DIR,'dataset/raw/test.txt']),           # 原始的test数据集
+    'sep': '_',
+    'bioes': False,
+    'all_data_path': path.sep.join([BASE_DIR,'dataset/raw/all_data.words.txt']),   # 总的数据，一般是将train和test何在一起构建语料库
+    'raw_train_path': path.sep.join([BASE_DIR,'dataset/raw/train.words.txt']),  # 原始的训练数据
+    'raw_target_path': path.sep.join([BASE_DIR,'dataset/raw/train.tags.txt']), #　原始的标签数据
+    'raw_val_path': path.sep.join([BASE_DIR, 'dataset/raw/dev.words.txt']),  # 原始的训练数据
+    'raw_val_target_path': path.sep.join([BASE_DIR, 'dataset/raw/dev.tags.txt']),
+    'raw_test_path': path.sep.join([BASE_DIR, 'dataset/raw/test.words.txt']),  # 原始的训练数据
+    'target_test_path': path.sep.join([BASE_DIR, 'dataset/raw/test.tags.txt']),
 
     'train_file_path': path.sep.join([BASE_DIR,'dataset/processed/train.json']), # 处理之后的训练数据
     'valid_file_path': path.sep.join([BASE_DIR,'dataset/processed/valid.json']),   #　valid数据
@@ -31,13 +36,14 @@ configs = {
     'num_classes': 12, # 类别个数 这里主要还有pad 0
     'max_length': 80,  # word文本平均长度,按照覆盖95%样本的标准，取截断长度:np.percentile(list,95.0)
     'max_features': 100000, # how many unique words to use (i.e num rows in embedding vector)
-    'embedding_dim':300,   # how big is each word vector
+    'embedding_dim':100,   # how big is each word vector
 
-    'batch_size': 256,   # how many samples to process at once
+    'batch_size': 128,   # how many samples to process at once
     'epochs': 100,       # number of epochs to train
     'start_epoch': 1,
     'learning_rate': 0.015,
     'weight_decay': 5e-4, # 权重衰减因子，防止过拟合
+    'optimizer': 'adam',
     'n_gpus': [], # GPU个数,如果只写一个数字，则表示gpu标号从0开始，并且默认使用gpu:0作为controller,
                    # 如果以列表形式表示，即[1,3,5],则我们默认list[0]作为controller
     'x_var':'source', # 原始文本字段名
@@ -67,10 +73,11 @@ configs = {
         "EOS": 11    # 结束符
     },
     # 模型列表以及模型配置信息
-    'models': {'bilstm_crf':{'hidden_size': 200,
+    'models': {'bilstm_crf': {'hidden_size': 200,
                              'bi_tag': True,
                              'dropout_p':0.5,
-                             'dropout_emb':0.0,
+                             'dropout_r': 0.5,
+                             'dropout_emb':0.5,
                              'num_layer': 1,
                              'use_cuda':True}
               }

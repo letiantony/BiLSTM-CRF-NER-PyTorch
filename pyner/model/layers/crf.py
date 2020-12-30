@@ -16,7 +16,7 @@ class CRF(nn.Module):
         self.tagset_size = tagset_size
         # # We add 2 here, because of START_TAG and STOP_TAG
         # # transitions (f_tag_size, t_tag_size), transition value from f_tag to t_tag
-        init_transitions = torch.zeros(self.tagset_size+2, self.tagset_size+2)
+        init_transitions = torch.zeros(self.tagset_size, self.tagset_size)
         init_transitions[:,START_TAG] = -10000.0
         init_transitions[STOP_TAG,:] = -10000.0
         init_transitions[:,0] = -10000.0
@@ -37,7 +37,7 @@ class CRF(nn.Module):
         seq_len = feats.size(1)
         tag_size = feats.size(2)
         # print feats.view(seq_len, tag_size)
-        assert(tag_size == self.tagset_size+2)
+        assert(tag_size == self.tagset_size)
         mask = mask.transpose(1,0).contiguous()
         ins_num = seq_len * batch_size
         ## be careful the view shape, it is .view(ins_num, 1, tag_size) but not .view(ins_num, tag_size, 1)
@@ -93,7 +93,7 @@ class CRF(nn.Module):
         batch_size = feats.size(0)
         seq_len = feats.size(1)
         tag_size = feats.size(2)
-        assert(tag_size == self.tagset_size+2)
+        assert(tag_size == self.tagset_size)
         ## calculate sentence length for each sentence
         length_mask = torch.sum(mask.long(), dim = 1).view(batch_size,1).long()
         ## mask to (seq_len, batch_size)

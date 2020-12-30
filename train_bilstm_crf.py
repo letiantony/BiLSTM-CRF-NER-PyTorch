@@ -14,6 +14,7 @@ from pyner.callback.lrscheduler import ReduceLROnPlateau
 from pyner.model.nn.bilstm_crf import Model
 from pyner.callback.modelcheckpoint import ModelCheckpoint
 from pyner.callback.trainingmonitor import TrainingMonitor
+from pyner.callback.earlystopping import EarlyStopping
 warnings.filterwarnings("ignore")
 
 # 主函数
@@ -42,6 +43,8 @@ def main(arch):
     # 将句子转化为id形式
     data_transformer.sentence2id(raw_data_path   = config['raw_train_path'],
                                  raw_target_path = config['raw_target_path'],
+                                 raw_val_path=config['raw_val_path'],
+                                 raw_val_target_path=config['raw_val_target_path'],
                                  x_var           = config['x_var'],
                                  y_var           = config['y_var'])
     # 建立词向量矩阵
@@ -81,8 +84,11 @@ def main(arch):
                   embedding_weight = embedding_weight,
                   vocab_size       = len(data_transformer.vocab),
                   device           = device)
-    optimizer = optim.Adam(params = model.parameters(),lr = config['learning_rate'],
+    if config['optimizer'] == 'adam':
+        optimizer = optim.Adam(params = model.parameters(),lr = config['learning_rate'],
                            weight_decay = config['weight_decay'])
+    elif config['optimizer'] == 'sgd':
+        optimizer = optim.SGD(params=model.parameters(), lr = config['learning_rate'],weight_decay = config['weight_decay'], momentum=config['momentum'])
 
 
     # **************************** callbacks ***********************
@@ -102,13 +108,17 @@ def main(arch):
                                     arch     = arch)
     # 学习率机制
     lr_scheduler = ReduceLROnPlateau(optimizer=optimizer,
-                                     factor   = 0.5,
+                                     factor   = 0.995,
                                      patience = config['lr_patience'],
-                                     min_lr   = 1e-9,
-                                     epsilon  = 1e-5,
+                                     min_lr   = 0.00005,
+                                     epsilon  = 1e-8,
                                      verbose  = 1,
                                      mode     = config['mode'])
-
+    early_stopping = EarlyStopping(min_delta=0.0,
+                                   patience=config['early_patience'],
+                                   mode=config['mode'],
+                                   monitor=config['monitor'],
+                                   logger=logger)
     # **************************** training model ***********************
     logger.info('training model....')
     trainer = Trainer(model            = model,
@@ -124,7 +134,11 @@ def main(arch):
                       resume           = args['resume'],
                       lr_scheduler     = lr_scheduler,
                       n_gpu            = config['n_gpus'],
-                      avg_batch_loss   = True)
+                      avg_batch_loss   = True,
+                      bioes = True,
+                      early_stopping=early_stopping,
+                      sep = config['sep'],
+                      train_loader = train_loader)
     # 查看模型结构
     trainer.summary()
     # 拟合模型

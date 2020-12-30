@@ -11,29 +11,21 @@ class CreateDataset(data.Dataset):
                  label_field,
                  x_var,y_var,
                  skip_header,
-                 is_train_mode,
+                max_sentence_length=None
                  ):
         fields = [(x_var, text_field), (y_var, label_field)]
         examples = []
-        if is_train_mode:
-            with open(data_path,'r') as fr:
-                for i,line in enumerate(fr):
-                    # 第一行一般为列名
-                    if i == 0 and skip_header:
-                        continue
-                    df = json.loads(line)
-                    sentence = df[x_var]
-                    label = df[y_var]
-                    examples.append(data.Example.fromlist([sentence, label], fields))
-        else:
-            with open(data_path,'r') as fr:
-                for i,line in enumerate(fr):
-                    if i == 0 and skip_header:
-                        continue
-                    df = json.loads(line)
-                    sentence = df[x_var]
-                    label = df[y_var]
-                    examples.append(data.Example.fromlist([sentence,label], fields))
+        with open(data_path,'r') as fr:
+            for i,line in enumerate(fr):
+                # 第一行一般为列名
+                if i == 0 and skip_header:
+                    continue
+                df = json.loads(line)
+                sentence = df[x_var]
+                if max_sentence_length and len(sentence.split(" ")) > max_sentence_length:
+                    continue
+                label = df[y_var]
+                examples.append(data.Example.fromlist([sentence, label], fields))
         super(CreateDataset,self).__init__(examples,fields)
 
 class DataLoader(object):
@@ -74,7 +66,7 @@ class DataLoader(object):
 
         LABEL = data.Field(sequential      = True,
                            use_vocab       = False,
-                           tokenize        = lambda x: [int(c)+1 for c in x.split()],
+                           tokenize        = lambda x: [int(c) for c in x.split()],
                            batch_first     = True,
                            fix_length      = self.max_sentence_len,
                            eos_token       = None,
@@ -89,7 +81,7 @@ class DataLoader(object):
                                x_var  = self.x_var,
                                y_var  = self.y_var,
                                skip_header = self.skip_header,
-                               is_train_mode = self.is_train_mode
+                               max_sentence_length = self.max_sentence_len
                               )
         # # 构建Iterator
         # # 在 test_iter, shuffle, sort, repeat一定要设置成 False, 要不然会被 torchtext 搞乱样本顺序

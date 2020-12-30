@@ -28,12 +28,7 @@ class F1_score(object):
         self.labels = None
         #print(num_classes)
         if num_classes:
-            if len(num_classes) > 3 and num_classes[-3:] == ["O", "BOS", "EOS"]:
-                self.labels = [i for i in range(1, num_classes-3)]
-            elif len(num_classes) > 2 and num_classes[-2:] == ["BOS", "EOS"]:
-                self.labels = [i for i in range(1, num_classes - 2)]
-            else:
-                self.labels = [i for i in range(1, num_classes)]
+            self.labels = [i for i in range(1, num_classes - 3)]
 
         print(self.labels)
         self._reset()
@@ -61,12 +56,7 @@ class Classification_Report(object):
     def __init__(self, num_classes=None):
         self.labels = None
         if num_classes:
-            if len(num_classes) > 3 and num_classes[-3:] == ["O", "BOS", "EOS"]:
-                self.labels = [i for i in range(1, num_classes-3)]
-            elif len(num_classes) > 2 and num_classes[-2:] == ["BOS", "EOS"]:
-                self.labels = [i for i in range(1, num_classes - 2)]
-            else:
-                self.labels = [i for i in range(1, num_classes)]
+            self.labels = [i for i in range(1, num_classes - 3)]
         self._reset()
 
     def _reset(self):
@@ -91,9 +81,12 @@ class Classification_Report(object):
 
 # 实体得分情况
 class Entity_Score(object):
-    def __init__(self,id_to_label):
+    def __init__(self,id_to_label,logger,bioes=False,sep="-"):
         self.id_to_label = id_to_label
         self._reset()
+        self.bioes = bioes
+        self.sep = sep
+        self.logger = logger
 
     def _reset(self):
         self.origins = []
@@ -111,6 +104,7 @@ class Entity_Score(object):
         total_found = len(self.founds)
         total_right = len(self.rights)
         r, p, f = self._compute(total_origin, total_found, total_right)
+        self.logger.info("micro - precision: %.4f - recall: %.4f - f1: %.4f"%(p,r,f))
         origin_counter = Counter([x['type'] for x in self.origins])
         found_counter = Counter([x['type'] for x in self.founds])
         right_counter = Counter([x['type'] for x in self.rights])
@@ -119,18 +113,18 @@ class Entity_Score(object):
             found = found_counter.get(type,0)
             right = right_counter.get(type,0)
             recall,precision,f1 = self._compute(origin,found,right)
-            print("Type: %s - precision: %.4f - recall: %.4f - f1: %.4f"%(type,recall,precision,f1))
+            self.logger.info("Type: %s - precision: %.4f - recall: %.4f - f1: %.4f"%(type,precision,recall,f1))
         return f
 
-    def update(self,label_paths,pred_paths):
+    def update(self,label_paths,pred_paths,length):
         '''
         :param label_paths: [[2,3,4,5,6,5,8,8,8,8,8,4],[2,3,7,7,7,8,8,8,8]]
         :param pred_paths: [[2,3,4,5,6,5,8,8,8,8,8,4],[2,3,7,7,7,8,8,8,8]]
         :return:
         '''
-        for label_path,pre_path in zip(label_paths,pred_paths):
-            label_entities = get_entity(label_path,self.id_to_label)
-            pre_entities = get_entity(pre_path, self.id_to_label)
+        for label_path,pre_path,seq_length in zip(label_paths,pred_paths,length):
+            label_entities = get_entity(label_path[:seq_length],self.id_to_label,self.bioes,self.sep)
+            pre_entities = get_entity(pre_path[:seq_length],self.id_to_label,self.bioes,self.sep)
             self.origins.extend(label_entities)
             self.founds.extend(pre_entities)
             self.rights.extend([pre_entity for pre_entity in pre_entities if pre_entity in label_entities])

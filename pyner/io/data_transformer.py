@@ -50,6 +50,7 @@ class DataTransformer(object):
         self.max_features = max_features
         self.label_to_id = label_to_id
         self.is_train_mode = is_train_mode
+        self.id_to_label = dict([(v, k) for k, v in self.label_to_id.items()])
 
     def _split_sent(self,line):
         """
@@ -83,11 +84,12 @@ class DataTransformer(object):
         random.shuffle(data)
         valid = data[:test_size]
         train = data[test_size:]
-        return train,valid
+        return train, valid
 
     def build_vocab(self):
         if os.path.isfile(self.vocab_path):
             self.vocab = pkl_read(self.vocab_path)
+            self.i2v = dict([(v, k) for k, v in self.vocab.items()])
         else:
             count = Counter()
             with open(self.all_data_path, 'r') as fr:
@@ -114,8 +116,16 @@ class DataTransformer(object):
             # 写入文件中
             pkl_write(data = word2id,filename=self.vocab_path)
             self.vocab = word2id
+            self.i2v = dict([(v, k) for k, v in self.vocab.items()])
 
-    def sentence2id(self,raw_data_path=None,raw_target_path  =None,x_var = None,y_var = None):
+    def sentence2id(self,
+                    raw_data_path=None,
+                    raw_target_path=None,
+                    raw_val_path=None,
+                    raw_val_target_path=None,
+                    x_var=None,
+                    y_var=None
+                    ):
         """
         将word转化为对应的id
         :param valid_size: 验证集大小
@@ -125,42 +135,67 @@ class DataTransformer(object):
             if os.path.isfile(self.train_file) and os.path.isfile(self.valid_file):
                 return True
             sentences, labels = [], []
-            with open(raw_data_path, 'r') as fr_x,open(raw_target_path,'r') as fr_y:
-                for i,(sent,target) in enumerate(zip(fr_x,fr_y)):
-                    if i==0 and self.skip_header:
+            with open(raw_data_path, 'r') as fr_x, open(raw_target_path, 'r') as fr_y:
+                for i, (sent, target) in enumerate(zip(fr_x, fr_y)):
+                    if i == 0 and self.skip_header:
                         continue
                     words = self._split_sent(sent)
                     label = self._split_sent(target)
-                    if len(words) ==0 or len(label) ==0:
+                    if len(words) == 0 or len(label) == 0:
                         continue
                     sent2id = [self._word_to_id(word=word, vocab=self.vocab) for word in words]
                     label = [self.label_to_id[x] for x in label]
                     sentences.append(sent2id)
                     labels.append(label)
+            if raw_val_path:
+                data = []
+                for data_x, data_y in tqdm(zip(sentences, labels), desc='Merge'):
+                    data.append((data_x, data_y))
+                text_write(self.train_file, data, x_var=x_var, y_var=y_var)
+
+                sentences, labels = [], []
+                with open(raw_val_path, 'r') as fr_x, open(raw_val_target_path, 'r') as fr_y:
+                    for i, (sent, target) in enumerate(zip(fr_x, fr_y)):
+                        if i == 0 and self.skip_header:
+                            continue
+                        words = self._split_sent(sent)
+                        label = self._split_sent(target)
+                        if len(words) == 0 or len(label) == 0:
+                            continue
+                        sent2id = [self._word_to_id(word=word, vocab=self.vocab) for word in words]
+                        label = [self.label_to_id[x] for x in label]
+                        sentences.append(sent2id)
+                        labels.append(label)
+                data = []
+                for data_x, data_y in tqdm(zip(sentences, labels), desc='Merge'):
+                    data.append((data_x, data_y))
+                text_write(self.valid_file, data, x_var=x_var, y_var=y_var)
+
             # 分割数据集
-            if self.valid_size:
-                train, val = self.train_val_split(X = sentences, y = labels,
+            if raw_val_path is None and self.valid_size:
+                train, val = self.train_val_split(X=sentences, y=labels,
                                                   valid_size=self.valid_size,
                                                   random_state=self.seed,
                                                   shuffle=True)
-                text_write(self.train_file, train,x_var = x_var,y_var = y_var)
-                text_write(self.valid_file, val,x_var = x_var,y_var = y_var)
+                text_write(self.train_file, train, x_var=x_var, y_var=y_var)
+                text_write(self.valid_file, val, x_var=x_var, y_var=y_var)
         else:
             if os.path.isfile(self.test_file):
                 return True
-            sentences,labels = [],[]
-            with open(raw_data_path, 'r') as fr_x:
-                for i,sent in enumerate(fr_x):
-                    if i==0 and self.skip_header:
+            sentences, labels = [], []
+            with open(raw_data_path, 'r') as fr_x, open(raw_target_path, 'r') as fr_y:
+                for i, (sent, target) in enumerate(zip(fr_x, fr_y)):
+                    if i == 0 and self.skip_header:
                         continue
                     words = self._split_sent(sent)
-                    if len(words) ==0:
+                    label = self._split_sent(target)
+                    if len(words) == 0 or len(label) == 0:
                         continue
                     sent2id = [self._word_to_id(word=word, vocab=self.vocab) for word in words]
-                    label    = [-1 for _ in range(len(sent2id))]
+                    label = [self.label_to_id[x] for x in label]
                     sentences.append(sent2id)
                     labels.append(label)
-            text_write(self.test_file,zip(sentences,labels),x_var = x_var,y_var = y_var)
+            text_write(self.test_file, zip(sentences, labels), x_var=x_var, y_var=y_var)
 
     def build_embedding_matrix(self,embedding_path,emb_mean = None,emb_std = None):
         '''
@@ -197,7 +232,7 @@ class DataTransformer(object):
         embeddings_index = {}
         f = open(embedding_path, 'r',errors='ignore',encoding = 'utf8')
         for line in f:
-            values = line.split(' ')
+            values = line.rstrip().split(' ')
             try:
                 word  = values[0]
                 coefs = np.asarray(values[1:], dtype='float32')

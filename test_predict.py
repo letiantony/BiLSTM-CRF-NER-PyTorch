@@ -11,6 +11,8 @@ from pyner.utils.utils import seed_everything
 from pyner.test.predict_utils import test_write
 from pyner.config.basic_config import configs as config
 from pyner.model.nn.bilstm_crf import Model
+from pyner.train.metrics import F1_score
+from pyner.train.metrics import Classification_Report
 
 warnings.filterwarnings("ignore")
 
@@ -28,12 +30,14 @@ def main(arch):
     data_transformer = DataTransformer(
                      vocab_path    = config['vocab_path'],
                      test_file     = config['test_file_path'],
+                     label_to_id   = config['label_to_id'],
                      logger        = logger,
                      skip_header   = False,
                      is_train_mode = False,
                      seed          = args['seed'])
     data_transformer.build_vocab()
     data_transformer.sentence2id(raw_data_path = config['raw_test_path'],
+                                 raw_target_path = config['target_test_path'],
                                  x_var=config['x_var'],
                                  y_var=config['y_var']
                                  )
@@ -58,15 +62,34 @@ def main(arch):
                    device           = device)
     # 初始化模型训练器
     logger.info('predicting model....')
-    predicter = Predicter(model           = bilstm,
-                          logger          = logger,
-                          n_gpu           = config['n_gpus'],
-                          test_data       = test_iter,
-                          checkpoint_path = checkpoint_path,
-                          label_to_id     = config['label_to_id'])
+    predicter = Predicter(model=bilstm,
+                          logger=logger,
+                          n_gpu=config['n_gpus'],
+                          test_data=test_iter,
+                          checkpoint_path=checkpoint_path,
+                          label_to_id=config['label_to_id'],
+                          evaluate=F1_score(num_classes=config['num_classes']),
+                          total_evaluate=Classification_Report(num_classes=config['num_classes']),
+                          bioes=config['bioes'],
+                          sep=config['sep'],
+                          i2v=data_transformer.i2v,
+                          i2l=data_transformer.id_to_label)
     # 拟合模型
-    predictions = predicter.predict()
-    test_write(data = predictions,filename = config['result_path'],raw_text_path=config['raw_test_path'])
+    results, text_epoch, tags, predictions, f1 = predicter.predict()
+    print('-------Test Micro score------')
+    print('Loss: {}, Token_Acc: {}, Token_F1: {}, F1: {}'.format(results['test_loss'], results['test_acc'],
+                                                                 results['test_f1'], f1))
+    with open('test_predict.out', 'w') as f:
+        for sentence, tag, pred in zip(text_epoch, tags, predictions):
+            for token, t, p in zip(sentence, tag, pred):
+                if config['sep'] == '_':
+                    t = '-'.join(t.split(config['sep']))
+                    p = '-'.join(p.split(config['sep']))
+                f.write(' '.join([token, t, p]) + '\n')
+            f.write('\n')
+    os.system('python conlleval.py test_predict.out')
+    if args['prediction']:
+        test_write(data=predictions, filename=config['result_path'], raw_text_path=config['raw_test_path'])
     # 释放显存
     if len(config['n_gpus']) > 0:
         torch.cuda.empty_cache()
@@ -78,6 +101,11 @@ if __name__ == '__main__':
                     default=2018,
                     type = int,
                     help = 'Seed for initializing.')
+    ap.add_argument('-p',
+                    '--prediction',
+                    type = bool,
+                    default=False,
+                    help = 'predict raw text')
     ap.add_argument('-b',
                     '--batch_size',
                     type = int,
